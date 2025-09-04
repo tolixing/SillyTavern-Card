@@ -32,6 +32,7 @@ export class StorageAdapter {
       const blob = await put(relativePath, buffer, {
         access: 'public',
         contentType,
+        addRandomSuffix: true, // 自动添加随机后缀避免文件名冲突
       });
       return blob.url;
     } else {
@@ -65,6 +66,7 @@ export class StorageAdapter {
       await put('index.json', indexContent, {
         access: 'public',
         contentType: 'application/json',
+        allowOverwrite: true, // 索引文件需要允许覆盖
       });
     } else {
       // 保存到本地文件系统
