@@ -122,18 +122,19 @@ export async function POST(request: NextRequest) {
     
     // 保存角色卡文件到存储
     const cardPath = `characters/${characterId}/card.png`;
-    await StorageAdapter.saveFile(cardPath, buffer, 'image/png');
+    const cardUrl = await StorageAdapter.saveFile(cardPath, buffer, 'image/png');
 
     // 提取并保存头像
     const avatarPath = `characters/${characterId}/avatar.png`;
     const avatarDataString = metadata.tEXt?.char_avatar;
+    let avatarUrl: string;
     
     if (avatarDataString && typeof avatarDataString === 'string') {
         const avatarBuffer = Buffer.from(avatarDataString, 'base64');
-        await StorageAdapter.saveFile(avatarPath, avatarBuffer, 'image/png');
+        avatarUrl = await StorageAdapter.saveFile(avatarPath, avatarBuffer, 'image/png');
     } else {
         // 如果没有独立的头像数据，就将整个卡片复制为头像
-        await StorageAdapter.saveFile(avatarPath, buffer, 'image/png');
+        avatarUrl = await StorageAdapter.saveFile(avatarPath, buffer, 'image/png');
     }
 
     // --- 更新 index.json ---
@@ -149,8 +150,8 @@ export async function POST(request: NextRequest) {
       description: specData.description || "No description.",
       tags: [], // 标签可以后续从其他元数据字段解析
       first_mes: specData.first_mes || "",
-      avatar_url: avatarPath,
-      card_url: cardPath,
+      avatar_url: avatarUrl,
+      card_url: cardUrl,
       last_updated: new Date().toISOString(),
     };
 

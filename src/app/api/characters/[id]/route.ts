@@ -184,13 +184,14 @@ export async function PUT(
       const cardPath = `characters/${characterId}/card.png`;
       const avatarPath = `characters/${characterId}/avatar.png`;
       
-      await StorageAdapter.saveFile(cardPath, buffer, 'image/png');
+      const cardUrl = await StorageAdapter.saveFile(cardPath, buffer, 'image/png');
       
       const avatarDataString = metadata.tEXt?.char_avatar;
+      let avatarUrl: string;
       if (avatarDataString && typeof avatarDataString === 'string') {
-          await StorageAdapter.saveFile(avatarPath, Buffer.from(avatarDataString, 'base64'), 'image/png');
+          avatarUrl = await StorageAdapter.saveFile(avatarPath, Buffer.from(avatarDataString, 'base64'), 'image/png');
       } else {
-          await StorageAdapter.saveFile(avatarPath, buffer, 'image/png');
+          avatarUrl = await StorageAdapter.saveFile(avatarPath, buffer, 'image/png');
       }
       
       // Update character with new metadata
@@ -199,6 +200,8 @@ export async function PUT(
       characterToUpdate.version = specData.character_version || "1.0";
       characterToUpdate.description = specData.description || "No description.";
       characterToUpdate.first_mes = specData.first_mes || "";
+      characterToUpdate.card_url = cardUrl;
+      characterToUpdate.avatar_url = avatarUrl;
 
     } else {
       // If no new file, just update the text fields
