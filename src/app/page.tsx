@@ -77,6 +77,11 @@ export default function Home() {
 
         // Remove the character from the state to update the UI
         setCharacters((prev) => prev.filter((char) => char.id !== id));
+        
+        // 强制刷新数据以确保与服务器同步
+        setTimeout(() => {
+          refreshCharacters();
+        }, 1000);
       } catch (err) {
         setError(
           err instanceof Error ? err.message : "An unknown error occurred."
@@ -97,7 +102,12 @@ export default function Home() {
 
   const refreshCharacters = async () => {
     try {
-      const response = await fetch(`/api/index?_=${new Date().getTime()}`);
+      const response = await fetch(`/api/index?_=${new Date().getTime()}`, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        }
+      });
       if (!response.ok) {
         throw new Error("Failed to fetch character index.");
       }

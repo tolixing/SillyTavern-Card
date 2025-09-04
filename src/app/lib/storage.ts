@@ -78,17 +78,23 @@ export class StorageAdapter {
   // 读取索引文件
   static async readIndex(): Promise<IndexFile> {
     if (isVercel) {
-      // 从 Blob 存储读取
+      // 从 Blob 存储读取 - 使用更直接的方法
       try {
         const blobs = await list({ prefix: 'index.json', limit: 1 });
         if (blobs.blobs.length > 0) {
-          const response = await fetch(blobs.blobs[0].url);
+          // 添加缓存破坏参数以确保获取最新数据
+          const response = await fetch(`${blobs.blobs[0].url}?t=${Date.now()}`, {
+            cache: 'no-cache',
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+            }
+          });
           const indexData = await response.json();
           return indexData;
         }
-              } catch {
-          console.log('No index file found in blob storage, creating new one');
-        }
+      } catch (error) {
+        console.log('Error reading index from blob storage:', error);
+      }
       
       // 如果没有找到，返回默认结构
       return {
