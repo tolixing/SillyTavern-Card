@@ -30,7 +30,7 @@ export default function Home() {
   useEffect(() => {
     const fetchCharacters = async () => {
       try {
-        const response = await fetch(`/index.json?_=${new Date().getTime()}`);
+        const response = await fetch(`/api/index?_=${new Date().getTime()}`);
         if (!response.ok) {
           throw new Error("Failed to fetch character index.");
         }
@@ -97,7 +97,7 @@ export default function Home() {
 
   const refreshCharacters = async () => {
     try {
-      const response = await fetch(`/index.json?_=${new Date().getTime()}`);
+      const response = await fetch(`/api/index?_=${new Date().getTime()}`);
       if (!response.ok) {
         throw new Error("Failed to fetch character index.");
       }

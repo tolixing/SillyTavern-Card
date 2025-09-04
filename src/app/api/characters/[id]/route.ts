@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile, writeFile, rm, mkdir } from "fs/promises";
-import path from "path";
+import { StorageAdapter } from "../../../lib/storage";
 
 // PNG 元数据解析函数
 function parsePngMetadata(buffer: Buffer) {
@@ -74,19 +73,11 @@ export async function DELETE(
 ) {
   try {
     const { id: characterId } = await params;
-    const indexPath = path.join(process.cwd(), "public", "index.json");
-    const characterDir = path.join(
-      process.cwd(),
-      "public",
-      "characters",
-      characterId
-    );
 
     // Read the index file
     let indexData: IndexFile;
     try {
-      const indexFileContent = await readFile(indexPath, "utf-8");
-      indexData = JSON.parse(indexFileContent);
+      indexData = await StorageAdapter.readIndex();
     } catch {
       return NextResponse.json(
         { message: "Index file not found or is corrupted." },
@@ -110,11 +101,11 @@ export async function DELETE(
     indexData.characters.splice(characterIndex, 1);
     indexData.last_updated = new Date().toISOString();
 
-    // Write the updated index back to the file
-    await writeFile(indexPath, JSON.stringify(indexData, null, 2));
+    // Delete the character's files
+    await StorageAdapter.deleteCharacterFiles(characterId);
 
-    // Delete the character's directory and all its contents
-    await rm(characterDir, { recursive: true, force: true });
+    // Write the updated index back to storage
+    await StorageAdapter.saveIndex(indexData);
 
     return NextResponse.json({
       message: "Character deleted successfully.",
@@ -141,13 +132,10 @@ export async function PUT(
     const description = formData.get("description") as string;
     const file = formData.get("file") as File | null;
 
-    const indexPath = path.join(process.cwd(), "public", "index.json");
-
     // Read the index file
     let indexData: IndexFile;
     try {
-      const indexFileContent = await readFile(indexPath, "utf-8");
-      indexData = JSON.parse(indexFileContent);
+      indexData = await StorageAdapter.readIndex();
     } catch {
       return NextResponse.json(
         { message: "Index file not found or is corrupted." },
@@ -178,11 +166,8 @@ export async function PUT(
         );
       }
       
-      const characterDir = path.join(process.cwd(), "public", "characters", characterId);
-      
       // Remove old files
-      await rm(characterDir, { recursive: true, force: true });
-      await mkdir(characterDir, { recursive: true });
+      await StorageAdapter.deleteCharacterFiles(characterId);
 
       const buffer = Buffer.from(await file.arrayBuffer());
 
@@ -195,16 +180,17 @@ export async function PUT(
       const cardData = JSON.parse(Buffer.from(charaDataString, 'base64').toString('utf-8'));
       const specData = cardData.data;
 
-      // Save new card and avatar
-      const cardPath = path.join(characterDir, "card.png");
-      const avatarPath = path.join(characterDir, "avatar.png");
-      await writeFile(cardPath, buffer);
+      // Save new card and avatar to storage
+      const cardPath = `characters/${characterId}/card.png`;
+      const avatarPath = `characters/${characterId}/avatar.png`;
+      
+      await StorageAdapter.saveFile(cardPath, buffer, 'image/png');
       
       const avatarDataString = metadata.tEXt?.char_avatar;
       if (avatarDataString && typeof avatarDataString === 'string') {
-          await writeFile(avatarPath, Buffer.from(avatarDataString, 'base64'));
+          await StorageAdapter.saveFile(avatarPath, Buffer.from(avatarDataString, 'base64'), 'image/png');
       } else {
-          await writeFile(avatarPath, buffer);
+          await StorageAdapter.saveFile(avatarPath, buffer, 'image/png');
       }
       
       // Update character with new metadata
@@ -225,7 +211,7 @@ export async function PUT(
     characterToUpdate.last_updated = new Date().toISOString();
     indexData.last_updated = new Date().toISOString();
 
-    await writeFile(indexPath, JSON.stringify(indexData, null, 2));
+    await StorageAdapter.saveIndex(indexData);
 
     return NextResponse.json({
       message: "Character updated successfully.",

@@ -135,5 +135,10 @@ logs
 # yarn.lock
 # pnpm-lock.yaml
 
-# User uploaded character files (optional - uncomment if you don't want to track uploaded characters)
-# /public/characters/*/
+# User uploaded character files - exclude from version control
+/public/characters/*/
+/public/index.json
+
+# Keep the characters directory structure and template files
+!/public/characters/.gitkeep
+!/public/index.json.template

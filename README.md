@@ -99,13 +99,29 @@ npm start
    Install Command: npm install
    ```
 
-4. **环境变量（如需要）**
+4. **环境变量配置**
    - 在 Vercel Dashboard 中设置环境变量
-   - 例如：API 密钥、数据库连接等
+   - **必需的环境变量**：
+     ```
+     BLOB_READ_WRITE_TOKEN=your_vercel_blob_token
+     ```
+   - 获取 Blob Token：
+     - 访问 Vercel Dashboard
+     - 进入项目设置 → Storage
+     - 创建 Blob Store
+     - 复制 Read/Write Token
 
 5. **部署**
    - 点击 "Deploy" 开始部署
    - 部署完成后获得生产环境 URL
+
+### ⚠️ 重要说明
+
+**Vercel Blob 存储配置**：
+- 本项目使用 Vercel Blob 存储来保存上传的角色卡文件
+- 在部署前必须配置 `BLOB_READ_WRITE_TOKEN` 环境变量
+- 本地开发时文件保存在 `public/characters/` 目录
+- 生产环境时文件保存在 Vercel Blob 存储中
 
 ### 方法二：通过 Vercel CLI
 

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, readFile, mkdir } from "fs/promises";
-import path from "path";
 import { v4 as uuidv4 } from "uuid";
+import { StorageAdapter } from "../../lib/storage";
 
 // PNG 元数据解析函数
 function parsePngMetadata(buffer: Buffer) {
@@ -64,11 +63,6 @@ interface Character {
   last_updated: string;
 }
 
-interface IndexFile {
-  repository_version: string;
-  last_updated: string;
-  characters: Character[];
-}
 
 // 定义从角色卡 PNG 元数据中解析出的数据结构
 interface CardSpecV2 {
@@ -107,17 +101,6 @@ export async function POST(request: NextRequest) {
     }
 
     const characterId = uuidv4();
-    const characterDir = path.join(
-      process.cwd(),
-      "public",
-      "characters",
-      characterId
-    );
-    const cardPath = path.join(characterDir, "card.png");
-    const avatarPath = path.join(characterDir, "avatar.png"); // 保存为 png
-
-    // 确保角色目录存在
-    await mkdir(characterDir, { recursive: true });
 
     // 读取上传文件的 buffer
     const bytes = await file.arrayBuffer();
@@ -137,35 +120,24 @@ export async function POST(request: NextRequest) {
     // Base64 解码并解析 JSON
     const cardData: CardData = JSON.parse(Buffer.from(charaDataString, 'base64').toString('utf-8'));
     
-    // 提取头像并保存
+    // 保存角色卡文件到存储
+    const cardPath = `characters/${characterId}/card.png`;
+    await StorageAdapter.saveFile(cardPath, buffer, 'image/png');
+
+    // 提取并保存头像
+    const avatarPath = `characters/${characterId}/avatar.png`;
     const avatarDataString = metadata.tEXt?.char_avatar;
+    
     if (avatarDataString && typeof avatarDataString === 'string') {
         const avatarBuffer = Buffer.from(avatarDataString, 'base64');
-        await writeFile(avatarPath, avatarBuffer);
+        await StorageAdapter.saveFile(avatarPath, avatarBuffer, 'image/png');
     } else {
         // 如果没有独立的头像数据，就将整个卡片复制为头像
-        await writeFile(avatarPath, buffer);
+        await StorageAdapter.saveFile(avatarPath, buffer, 'image/png');
     }
-
-
-    // 保存原始卡片文件
-    await writeFile(cardPath, buffer);
 
     // --- 更新 index.json ---
-    const indexPath = path.join(process.cwd(), "public", "index.json");
-    let indexData: IndexFile;
-
-    try {
-      const indexFileContent = await readFile(indexPath, "utf-8");
-      indexData = JSON.parse(indexFileContent);
-    } catch {
-      // 如果文件不存在或为空，则创建一个新的结构
-      indexData = {
-        repository_version: "1.0.0",
-        last_updated: new Date().toISOString(),
-        characters: [],
-      };
-    }
+    const indexData = await StorageAdapter.readIndex();
     
     const specData = cardData.data;
 
@@ -177,8 +149,8 @@ export async function POST(request: NextRequest) {
       description: specData.description || "No description.",
       tags: [], // 标签可以后续从其他元数据字段解析
       first_mes: specData.first_mes || "",
-      avatar_url: `characters/${characterId}/avatar.png`,
-      card_url: `characters/${characterId}/card.png`,
+      avatar_url: avatarPath,
+      card_url: cardPath,
       last_updated: new Date().toISOString(),
     };
 
@@ -186,8 +158,8 @@ export async function POST(request: NextRequest) {
     indexData.characters.push(newCharacter);
     indexData.last_updated = new Date().toISOString();
 
-    // 将更新后的索引写回文件
-    await writeFile(indexPath, JSON.stringify(indexData, null, 2));
+    // 将更新后的索引保存
+    await StorageAdapter.saveIndex(indexData);
 
     return NextResponse.json({
       message: "Character card uploaded successfully!",
