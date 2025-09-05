@@ -25,7 +25,8 @@ RUN npm ci
 COPY . .
 
 # 确保必要的目录存在
-RUN mkdir -p public/characters
+RUN mkdir -p public/characters && \
+    mkdir -p data/characters
 
 # 构建应用
 RUN npm run build
@@ -42,15 +43,18 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# 创建数据目录
+RUN mkdir -p /app/data/characters && \
+    mkdir -p /app/public/characters
+
 # 复制 public 目录
 COPY --from=builder /app/public ./public
 
-# 创建数据目录并设置权限
-RUN mkdir -p /app/data/characters && \
-    mkdir -p /app/public/characters && \
-    chown -R nextjs:nodejs /app/data && \
+# 设置权限
+RUN chown -R nextjs:nodejs /app/data && \
     chown -R nextjs:nodejs /app/public && \
-    chmod -R 755 /app/public/characters
+    chmod -R 755 /app/public/characters && \
+    chmod -R 755 /app/data/characters
 
 # 切换到非 root 用户
 USER nextjs
