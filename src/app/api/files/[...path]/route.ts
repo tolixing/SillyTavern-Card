@@ -11,14 +11,17 @@ export async function GET(
     const filePath = pathSegments.join('/');
     
     // 构建完整的文件路径
+    // 在 Docker 环境中，文件可能保存在卷中
     const fullPath = join(process.cwd(), 'public', filePath);
     
     console.log('File API - Requested path:', filePath);
     console.log('File API - Full path:', fullPath);
+    console.log('File API - Process cwd:', process.cwd());
     
     try {
       // 读取文件
       const buffer = await readFile(fullPath);
+      console.log('File API - File read successfully, size:', buffer.length);
       
       // 根据文件扩展名设置适当的 Content-Type
       let contentType = 'application/octet-stream';

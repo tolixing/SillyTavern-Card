@@ -46,10 +46,10 @@ class LocalStorageAdapter implements StorageAdapter {
     // 写入文件
     await writeFile(filePath, data);
     
-    const returnPath = `/characters/${fileName}`;
+    const returnPath = `/api/files/characters/${fileName}`;
     console.log('Storage - Return path:', returnPath);
     
-    // 返回相对路径，用于前端访问
+    // 返回文件服务 API 路径，用于前端访问
     return returnPath;
   }
 
