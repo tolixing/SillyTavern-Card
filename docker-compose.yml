@@ -10,8 +10,8 @@ services:
       - "13000:3000"
     volumes:
       # 挂载数据目录，确保数据持久化
-      - /sillytavernCard/data:/app/data
-      - /sillytavernCard/public:/app/public
+      - app-data:/app/data
+      - app-public:/app/public
     environment:
       - NODE_ENV=production
       - PORT=3000
