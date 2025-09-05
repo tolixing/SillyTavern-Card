@@ -37,7 +37,8 @@ export async function GET(
       const fileBuffer = await readFile(filePath);
       
       // 返回文件下载
-      return new NextResponse(fileBuffer, {
+      return new Response(new Uint8Array(fileBuffer), {
+        status: 200,
         headers: {
           'Content-Type': 'image/png',
           'Content-Disposition': `attachment; filename="${character.name}_v${character.version}.png"`,
