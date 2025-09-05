@@ -277,23 +277,6 @@ docker-compose logs --tail=100 -f
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
 5. 开启 Pull Request
 
-## 📝 更新日志
-
-### v2.0.0
-- 🐳 新增 Docker 容器化部署
-- ⚡ 优化上传响应速度（从 3-5秒 降至 0.5-1秒）
-- 🗂️ 重构存储架构，移除 Vercel Blob 依赖
-- 📚 完善部署文档和脚本
-- 🚀 配置 GitHub Actions 自动构建 Docker 镜像
-- 🛡️ 增强安全性和稳定性
-
-### v1.0.0
-- ✨ 初始版本发布
-- 🎭 支持角色卡上传、编辑、删除
-- 🎨 现代化 UI 设计
-- 📱 响应式布局支持
-- 🔍 搜索和筛选功能
-
 ## 📄 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
