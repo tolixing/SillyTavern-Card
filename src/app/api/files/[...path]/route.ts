@@ -11,8 +11,10 @@ export async function GET(
     const filePath = pathSegments.join('/');
     
     // 构建完整的文件路径
-    // 在 Docker 环境中，文件可能保存在卷中
-    const fullPath = join(process.cwd(), 'public', filePath);
+    // 在 Docker 环境中，文件保存在 /app/data 卷中
+    const basePath = process.env.NODE_ENV === 'production' ? '/app/data' : process.cwd();
+    const fullPath = join(basePath, 'characters', filePath);
+    
     
     try {
       // 读取文件

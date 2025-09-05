@@ -9,9 +9,8 @@ services:
     ports:
       - "13000:3000"
     volumes:
-      # 挂载数据目录，确保数据持久化
+      # 统一使用一个数据卷，所有数据都保存在 /app/data
       - app-data:/app/data
-      - app-public:/app/public
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -19,6 +18,4 @@ services:
 volumes:
   # 数据持久化卷
   app-data:
-    driver: local
-  app-public:
     driver: local

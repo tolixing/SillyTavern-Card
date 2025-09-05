@@ -29,7 +29,8 @@ class LocalStorageAdapter implements StorageAdapter {
   private indexPath: string;
 
   constructor() {
-    this.basePath = process.cwd();
+    // 在Docker环境中使用 /app/data，本地开发使用 process.cwd()
+    this.basePath = process.env.NODE_ENV === 'production' ? '/app/data' : process.cwd();
     this.charactersPath = join(this.basePath, 'public', 'characters');
     this.indexPath = join(this.basePath, 'public', 'index.json');
   }

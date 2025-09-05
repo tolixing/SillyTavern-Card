@@ -31,7 +31,8 @@ export async function GET(
     await storage.saveIndex(indexData);
 
     // 读取角色卡文件
-    const filePath = join(process.cwd(), 'public', 'characters', characterId, 'card.png');
+    const basePath = process.env.NODE_ENV === 'production' ? '/app/data' : process.cwd();
+    const filePath = join(basePath, 'characters', characterId, 'card.png');
     
     try {
       const fileBuffer = await readFile(filePath);
