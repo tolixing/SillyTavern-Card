@@ -85,7 +85,7 @@ npm start
 
 1. **克隆项目**
 ```bash
-git clone https://github.com/your-username/sillytavern-card.git
+git clone https://github.com/tolixing/SillyTavern-Card.git
 cd sillytavern-card
 ```
 

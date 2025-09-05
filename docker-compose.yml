@@ -3,11 +3,11 @@ version: '3.8'
 services:
   # 主应用服务
   app:
-    image: ghcr.io/your-username/sillytavern-card:latest
+    image: ghcr.io/tolixing/sillytavern-card:latest
     container_name: sillytavern-card
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "13000:3000"
     volumes:
       # 挂载数据目录，确保数据持久化
       - ./data:/app/data

@@ -45,8 +45,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 # 复制 public 目录
 COPY --from=builder /app/public ./public
 
-# 创建数据目录
-RUN mkdir -p /app/data/characters && chown -R nextjs:nodejs /app/data
+# 创建数据目录并设置权限
+RUN mkdir -p /app/data/characters && \
+    mkdir -p /app/public/characters && \
+    chown -R nextjs:nodejs /app/data && \
+    chown -R nextjs:nodejs /app/public && \
+    chmod -R 755 /app/public/characters
 
 # 切换到非 root 用户
 USER nextjs
