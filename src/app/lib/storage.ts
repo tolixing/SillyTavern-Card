@@ -35,6 +35,10 @@ class LocalStorageAdapter implements StorageAdapter {
   async saveFile(fileName: string, data: Buffer, contentType: string): Promise<string> {
     const filePath = join(this.charactersPath, fileName);
     
+    console.log('Storage - Saving file:', fileName);
+    console.log('Storage - File path:', filePath);
+    console.log('Storage - Characters path:', this.charactersPath);
+    
     // 确保文件的父目录存在
     const fileDir = join(filePath, '..');
     await mkdir(fileDir, { recursive: true });
@@ -42,8 +46,11 @@ class LocalStorageAdapter implements StorageAdapter {
     // 写入文件
     await writeFile(filePath, data);
     
+    const returnPath = `/characters/${fileName}`;
+    console.log('Storage - Return path:', returnPath);
+    
     // 返回相对路径，用于前端访问
-    return `/characters/${fileName}`;
+    return returnPath;
   }
 
   async deleteCharacterFiles(characterId: string): Promise<void> {

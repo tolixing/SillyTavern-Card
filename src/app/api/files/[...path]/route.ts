@@ -13,6 +13,9 @@ export async function GET(
     // 构建完整的文件路径
     const fullPath = join(process.cwd(), 'public', filePath);
     
+    console.log('File API - Requested path:', filePath);
+    console.log('File API - Full path:', fullPath);
+    
     try {
       // 读取文件
       const buffer = await readFile(fullPath);

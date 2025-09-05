@@ -175,13 +175,13 @@ export default function Home() {
               >
                 {/* 背景图片 */}
                 <Image
-                  src={char.avatar_url.startsWith('http') ? char.avatar_url : char.avatar_url}
+                  src={char.avatar_url}
                   alt={`${char.name}'s avatar`}
                   fill
                   style={{ objectFit: "cover" }}
                   className="bg-gray-200 transition-all duration-300"
                   onError={(e) => {
-                    e.currentTarget.src = "https://via.placeholder.com/300x400/cccccc/666666?text=No+Image";
+                    e.currentTarget.src = "/placeholder.svg";
                   }}
                 />
                 
