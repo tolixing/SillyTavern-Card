@@ -50,11 +50,12 @@ RUN mkdir -p /app/data/characters && \
 # 复制 public 目录
 COPY --from=builder /app/public ./public
 
-# 设置权限
+# 设置权限 - 确保 nextjs 用户拥有所有必要目录的权限
 RUN chown -R nextjs:nodejs /app/data && \
     chown -R nextjs:nodejs /app/public && \
-    chmod -R 755 /app/public/characters && \
-    chmod -R 755 /app/data/characters
+    chmod -R 777 /app/public/characters && \
+    chmod -R 777 /app/data/characters && \
+    chmod -R 777 /app/public
 
 # 切换到非 root 用户
 USER nextjs
@@ -67,4 +68,4 @@ ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # 启动应用
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "mkdir -p /app/public/characters && chmod -R 777 /app/public && node server.js"]
