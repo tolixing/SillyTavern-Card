@@ -158,7 +158,7 @@ export default function Home() {
               上传角色卡
             </button>
             <a
-              href="/index.json"
+              href="/api/index.json"
               target="_blank"
               rel="noopener noreferrer"
               className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 whitespace-nowrap transition-colors"
