@@ -24,6 +24,9 @@ RUN npm ci
 # 复制源代码
 COPY . .
 
+# 确保必要的目录存在
+RUN mkdir -p public/characters
+
 # 构建应用
 RUN npm run build
 
@@ -38,6 +41,8 @@ RUN adduser --system --uid 1001 nextjs
 # 复制构建产物
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# 复制 public 目录
 COPY --from=builder /app/public ./public
 
 # 创建数据目录
