@@ -101,16 +101,18 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
       const result = await response.json();
       if (response.ok) {
         setMessage(`成功：${result.message}`);
+        // 立即刷新数据
+        onSuccess();
         // 重置表单
         setName("");
         setDescription("");
         setVersion("1.0");
         setFile(null);
+        // 延迟关闭弹窗，给用户时间看到成功消息
         setTimeout(() => {
-          onSuccess();
           onClose();
           setMessage("");
-        }, 1500);
+        }, 1000);
       } else {
         setMessage(`错误：${result.message}`);
       }

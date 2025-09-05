@@ -1,6 +1,5 @@
-import { put, del, list } from '@vercel/blob';
-import { writeFile, readFile, mkdir, rm } from "fs/promises";
-import path from "path";
+import { readFile, writeFile, mkdir, rm, access } from 'fs/promises';
+import { join } from 'path';
 
 interface Character {
   id: string;
@@ -21,119 +20,80 @@ interface IndexFile {
   characters: Character[];
 }
 
-// 检测是否在 Vercel 环境中
-const isVercel = process.env.VERCEL === "1" || process.env.BLOB_READ_WRITE_TOKEN;
+// 本地文件系统存储适配器
+class LocalStorageAdapter implements StorageAdapter {
+  private basePath: string;
+  private charactersPath: string;
+  private indexPath: string;
 
-export class StorageAdapter {
-  // 保存文件到 Blob 存储或本地文件系统
-  static async saveFile(relativePath: string, buffer: Buffer, contentType: string = 'application/octet-stream'): Promise<string> {
-    if (isVercel) {
-      // 使用 Vercel Blob 存储
-      const blob = await put(relativePath, buffer, {
-        access: 'public',
-        contentType,
-        addRandomSuffix: true, // 自动添加随机后缀避免文件名冲突
-      });
-      return blob.url;
-    } else {
-      // 本地开发环境，保存到文件系统
-      const fullPath = path.join(process.cwd(), "public", relativePath);
-      const dir = path.dirname(fullPath);
-      await mkdir(dir, { recursive: true });
-      await writeFile(fullPath, buffer);
-      return `/${relativePath}`;
-    }
+  constructor() {
+    this.basePath = process.cwd();
+    this.charactersPath = join(this.basePath, 'public', 'characters');
+    this.indexPath = join(this.basePath, 'public', 'index.json');
   }
 
-  // 删除文件
-  static async deleteFile(relativePath: string): Promise<void> {
-    if (isVercel) {
-      // 从 Blob 存储删除
-      await del(relativePath);
-    } else {
-      // 从本地文件系统删除
-      const fullPath = path.join(process.cwd(), "public", relativePath);
-      await rm(fullPath, { recursive: true, force: true });
-    }
-  }
-
-  // 保存索引文件
-  static async saveIndex(indexData: IndexFile): Promise<void> {
-    const indexContent = JSON.stringify(indexData, null, 2);
+  async saveFile(fileName: string, data: Buffer, contentType: string): Promise<string> {
+    const filePath = join(this.charactersPath, fileName);
     
-    if (isVercel) {
-      // 保存到 Blob 存储
-      await put('index.json', indexContent, {
-        access: 'public',
-        contentType: 'application/json',
-        allowOverwrite: true, // 索引文件需要允许覆盖
-      });
-    } else {
-      // 保存到本地文件系统
-      const indexPath = path.join(process.cwd(), "public", "index.json");
-      await writeFile(indexPath, indexContent);
+    // 确保文件的父目录存在
+    const fileDir = join(filePath, '..');
+    await mkdir(fileDir, { recursive: true });
+    
+    // 写入文件
+    await writeFile(filePath, data);
+    
+    // 返回相对路径，用于前端访问
+    return `/characters/${fileName}`;
+  }
+
+  async deleteCharacterFiles(characterId: string): Promise<void> {
+    const characterDir = join(this.charactersPath, characterId);
+    
+    try {
+      // 检查目录是否存在
+      await access(characterDir);
+      // 删除整个角色目录
+      await rm(characterDir, { recursive: true, force: true });
+    } catch {
+      // 目录不存在，忽略错误
     }
   }
 
-  // 读取索引文件
-  static async readIndex(): Promise<IndexFile> {
-    if (isVercel) {
-      // 从 Blob 存储读取 - 使用更直接的方法
-      try {
-        const blobs = await list({ prefix: 'index.json', limit: 1 });
-        if (blobs.blobs.length > 0) {
-          // 添加缓存破坏参数以确保获取最新数据
-          const response = await fetch(`${blobs.blobs[0].url}?t=${Date.now()}`, {
-            cache: 'no-cache',
-            headers: {
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-            }
-          });
-          const indexData = await response.json();
-          return indexData;
-        }
-      } catch (error) {
-        console.log('Error reading index from blob storage:', error);
-      }
-      
-      // 如果没有找到，返回默认结构
+  async readIndex(): Promise<IndexFile> {
+    try {
+      const data = await readFile(this.indexPath, 'utf-8');
+      return JSON.parse(data);
+    } catch {
+      // 如果文件不存在，返回空索引
       return {
         repository_version: "1.0.0",
         last_updated: new Date().toISOString(),
         characters: []
       };
-    } else {
-      // 从本地文件系统读取
-      try {
-        const indexPath = path.join(process.cwd(), "public", "index.json");
-        const indexFileContent = await readFile(indexPath, "utf-8");
-        return JSON.parse(indexFileContent);
-      } catch {
-        // 如果文件不存在，返回默认结构
-        return {
-          repository_version: "1.0.0",
-          last_updated: new Date().toISOString(),
-          characters: []
-        };
-      }
     }
   }
 
-  // 删除角色相关的所有文件
-  static async deleteCharacterFiles(characterId: string): Promise<void> {
-    const cardPath = `characters/${characterId}/card.png`;
-    const avatarPath = `characters/${characterId}/avatar.png`;
+  async saveIndex(data: IndexFile): Promise<void> {
+    // 确保目录存在
+    await mkdir(join(this.basePath, 'public'), { recursive: true });
     
-    try {
-      await this.deleteFile(cardPath);
-    } catch (error) {
-      console.log(`Failed to delete card file: ${error}`);
-    }
+    // 更新最后更新时间
+    data.last_updated = new Date().toISOString();
     
-    try {
-      await this.deleteFile(avatarPath);
-    } catch (error) {
-      console.log(`Failed to delete avatar file: ${error}`);
-    }
+    // 写入索引文件
+    await writeFile(this.indexPath, JSON.stringify(data, null, 2));
   }
 }
+
+// 存储适配器接口
+interface StorageAdapter {
+  saveFile(fileName: string, data: Buffer, contentType: string): Promise<string>;
+  deleteCharacterFiles(characterId: string): Promise<void>;
+  readIndex(): Promise<IndexFile>;
+  saveIndex(data: IndexFile): Promise<void>;
+}
+
+// 创建存储适配器实例
+const storage = new LocalStorageAdapter();
+
+export { storage, type Character, type IndexFile };

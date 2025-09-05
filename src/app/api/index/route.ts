@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { StorageAdapter } from "../../lib/storage";
+import { storage } from "../../lib/storage";
 
 export async function GET() {
   try {
-    const indexData = await StorageAdapter.readIndex();
+    const indexData = await storage.readIndex();
     
     return NextResponse.json(indexData, {
       headers: {

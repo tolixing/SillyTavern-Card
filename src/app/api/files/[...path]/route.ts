@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { list } from '@vercel/blob';
+import { readFile } from 'fs/promises';
+import { join } from 'path';
 
 export async function GET(
   request: NextRequest,
@@ -9,30 +10,12 @@ export async function GET(
     const { path: pathSegments } = await params;
     const filePath = pathSegments.join('/');
     
-    // 检查是否在 Vercel 环境中
-    const isVercel = process.env.VERCEL === "1" || process.env.BLOB_READ_WRITE_TOKEN;
+    // 构建完整的文件路径
+    const fullPath = join(process.cwd(), 'public', filePath);
     
-    if (!isVercel) {
-      // 在本地环境中，重定向到静态文件
-      return NextResponse.redirect(new URL(`/${filePath}`, request.url));
-    }
-    
-    // 在 Vercel 环境中，从 Blob 存储获取文件
     try {
-      const blobs = await list({ prefix: filePath, limit: 1 });
-      
-      if (blobs.blobs.length === 0) {
-        return new NextResponse('File not found', { status: 404 });
-      }
-      
-      const blob = blobs.blobs[0];
-      const response = await fetch(blob.url);
-      
-      if (!response.ok) {
-        return new NextResponse('File not found', { status: 404 });
-      }
-      
-      const buffer = await response.arrayBuffer();
+      // 读取文件
+      const buffer = await readFile(fullPath);
       
       // 根据文件扩展名设置适当的 Content-Type
       let contentType = 'application/octet-stream';
@@ -40,16 +23,22 @@ export async function GET(
         contentType = 'image/png';
       } else if (filePath.endsWith('.json')) {
         contentType = 'application/json';
+      } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+        contentType = 'image/jpeg';
+      } else if (filePath.endsWith('.gif')) {
+        contentType = 'image/gif';
+      } else if (filePath.endsWith('.webp')) {
+        contentType = 'image/webp';
       }
       
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         headers: {
           'Content-Type': contentType,
           'Cache-Control': 'public, max-age=31536000, immutable',
         },
       });
     } catch (error) {
-      console.error('Error fetching file from blob storage:', error);
+      console.error('Error reading file:', error);
       return new NextResponse('File not found', { status: 404 });
     }
   } catch (error) {

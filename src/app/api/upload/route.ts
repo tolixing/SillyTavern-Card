@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { StorageAdapter } from "../../lib/storage";
+import { storage, type Character, type IndexFile } from "../../lib/storage";
 
 // PNG 元数据解析函数
 function parsePngMetadata(buffer: Buffer) {
@@ -34,42 +34,21 @@ function parsePngMetadata(buffer: Buffer) {
     if (type === 'tEXt') {
       const nullIndex = data.indexOf(0);
       if (nullIndex !== -1) {
-        const keyword = data.subarray(0, nullIndex).toString('latin1');
-        const text = data.subarray(nullIndex + 1).toString('latin1');
+        const keyword = data.subarray(0, nullIndex).toString('ascii');
+        const text = data.subarray(nullIndex + 1).toString('ascii');
         chunks[keyword] = text;
       }
-    }
-
-    // 如果遇到 IEND chunk，停止解析
-    if (type === 'IEND') {
-      break;
     }
   }
 
   return { tEXt: chunks };
 }
 
-// 定义角色和索引文件的数据结构
-interface Character {
-  id: string;
-  name: string;
-  author: string;
-  version: string;
-  description: string;
-  tags: string[];
-  first_mes: string;
-  avatar_url: string;
-  card_url: string;
-  last_updated: string;
-}
-
-
 // 定义从角色卡 PNG 元数据中解析出的数据结构
 interface CardSpecV2 {
   name?: string;
   description?: string;
   first_mes?: string;
-  // 假设还有其他字段，例如作者、版本等
   creator?: string; 
   character_version?: string;
 }
@@ -80,11 +59,13 @@ interface CardData {
   data: CardSpecV2;
 }
 
-
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
+    const name = formData.get("name") as string;
+    const description = formData.get("description") as string;
+    const version = formData.get("version") as string;
 
     if (!file) {
       return NextResponse.json(
@@ -121,33 +102,33 @@ export async function POST(request: NextRequest) {
     const cardData: CardData = JSON.parse(Buffer.from(charaDataString, 'base64').toString('utf-8'));
     
     // 保存角色卡文件到存储
-    const cardPath = `characters/${characterId}/card.png`;
-    const cardUrl = await StorageAdapter.saveFile(cardPath, buffer, 'image/png');
+    const cardFileName = `${characterId}/card.png`;
+    const cardUrl = await storage.saveFile(cardFileName, buffer, 'image/png');
 
     // 提取并保存头像
-    const avatarPath = `characters/${characterId}/avatar.png`;
+    const avatarFileName = `${characterId}/avatar.png`;
     const avatarDataString = metadata.tEXt?.char_avatar;
     let avatarUrl: string;
     
     if (avatarDataString && typeof avatarDataString === 'string') {
         const avatarBuffer = Buffer.from(avatarDataString, 'base64');
-        avatarUrl = await StorageAdapter.saveFile(avatarPath, avatarBuffer, 'image/png');
+        avatarUrl = await storage.saveFile(avatarFileName, avatarBuffer, 'image/png');
     } else {
         // 如果没有独立的头像数据，就将整个卡片复制为头像
-        avatarUrl = await StorageAdapter.saveFile(avatarPath, buffer, 'image/png');
+        avatarUrl = await storage.saveFile(avatarFileName, buffer, 'image/png');
     }
 
     // --- 更新 index.json ---
-    const indexData = await StorageAdapter.readIndex();
+    const indexData = await storage.readIndex();
     
     const specData = cardData.data;
 
     const newCharacter: Character = {
       id: characterId,
-      name: specData.name || "Unnamed",
+      name: name || specData.name || "Unnamed",
       author: specData.creator || "Unknown Author",
-      version: specData.character_version || "1.0",
-      description: specData.description || "No description.",
+      version: version || specData.character_version || "1.0",
+      description: description || specData.description || "No description.",
       tags: [], // 标签可以后续从其他元数据字段解析
       first_mes: specData.first_mes || "",
       avatar_url: avatarUrl,
@@ -160,7 +141,7 @@ export async function POST(request: NextRequest) {
     indexData.last_updated = new Date().toISOString();
 
     // 将更新后的索引保存
-    await StorageAdapter.saveIndex(indexData);
+    await storage.saveIndex(indexData);
 
     return NextResponse.json({
       message: "Character card uploaded successfully!",

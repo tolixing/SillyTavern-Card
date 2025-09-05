@@ -175,7 +175,7 @@ export default function Home() {
               >
                 {/* 背景图片 */}
                 <Image
-                  src={char.avatar_url}
+                  src={char.avatar_url.startsWith('http') ? char.avatar_url : char.avatar_url}
                   alt={`${char.name}'s avatar`}
                   fill
                   style={{ objectFit: "cover" }}
@@ -195,7 +195,7 @@ export default function Home() {
                       </span>
                       <div className="flex items-center gap-2">
                         <a
-                          href={char.card_url}
+                          href={char.card_url.startsWith('http') ? char.card_url : char.card_url}
                           download
                           className="bg-green-500/80 hover:bg-green-600/90 text-white px-3 py-1 rounded-full text-xs transition-all duration-200 backdrop-blur-sm"
                           onClick={(e) => e.stopPropagation()}

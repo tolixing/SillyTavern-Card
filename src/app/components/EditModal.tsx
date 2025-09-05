@@ -123,11 +123,13 @@ export default function EditModal({ isOpen, character, onClose, onSuccess }: Edi
       }
 
       setMessage("角色更新成功！");
+      // 立即刷新数据
+      onSuccess();
+      // 延迟关闭弹窗，给用户时间看到成功消息
       setTimeout(() => {
-        onSuccess();
         onClose();
         setMessage("");
-      }, 1500);
+      }, 1000);
     } catch (err) {
       setMessage(
         err instanceof Error ? `错误：${err.message}` : "发生未知错误。"

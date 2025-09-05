@@ -142,3 +142,5 @@ logs
 # Keep the characters directory structure and template files
 !/public/characters/.gitkeep
 !/public/index.json.template
+
+doc
