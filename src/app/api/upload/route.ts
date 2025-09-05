@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { storage, type Character, type IndexFile } from "../../lib/storage";
+import { storage, type Character } from "../../lib/storage";
 
 // PNG 元数据解析函数
 function parsePngMetadata(buffer: Buffer) {
@@ -42,6 +42,52 @@ function parsePngMetadata(buffer: Buffer) {
   }
 
   return { tEXt: chunks };
+}
+
+// 去除 PNG 元数据，保留纯图片数据
+function removePngMetadata(buffer: Buffer): Buffer {
+  const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+  
+  // 检查 PNG 签名
+  if (!buffer.subarray(0, 8).equals(PNG_SIGNATURE)) {
+    throw new Error("Not a valid PNG file");
+  }
+
+  const result: Buffer[] = [PNG_SIGNATURE];
+  let offset = 8; // 跳过 PNG 签名
+
+  while (offset < buffer.length - 8) {
+    // 读取 chunk 长度 (4 bytes, big-endian)
+    const length = buffer.readUInt32BE(offset);
+    offset += 4;
+
+    // 读取 chunk 类型 (4 bytes)
+    const type = buffer.subarray(offset, offset + 4).toString('ascii');
+    offset += 4;
+
+    // 读取 chunk 数据
+    const data = buffer.subarray(offset, offset + length);
+    offset += length;
+
+    // 读取 CRC (4 bytes)
+    const crc = buffer.subarray(offset, offset + 4);
+    offset += 4;
+
+    // 只保留必要的 chunks，移除元数据 chunks
+    if (type === 'IHDR' || type === 'IDAT' || type === 'IEND' || 
+        (type === 'PLTE' && length > 0) || 
+        (type === 'tRNS' && length > 0)) {
+      // 保留这些 chunks
+      result.push(Buffer.alloc(4));
+      result[result.length - 1].writeUInt32BE(length, 0); // 长度
+      result.push(Buffer.from(type, 'ascii')); // 类型
+      result.push(data); // 数据
+      result.push(crc); // CRC
+    }
+    // 跳过 tEXt, zTXt, iTXt 等元数据 chunks
+  }
+
+  return Buffer.concat(result);
 }
 
 // 定义从角色卡 PNG 元数据中解析出的数据结构
@@ -105,18 +151,10 @@ export async function POST(request: NextRequest) {
     const cardFileName = `${characterId}/card.png`;
     const cardUrl = await storage.saveFile(cardFileName, buffer, 'image/png');
 
-    // 提取并保存头像
+    // 创建去除元数据的纯图片作为头像
     const avatarFileName = `${characterId}/avatar.png`;
-    const avatarDataString = metadata.tEXt?.char_avatar;
-    let avatarUrl: string;
-    
-    if (avatarDataString && typeof avatarDataString === 'string') {
-        const avatarBuffer = Buffer.from(avatarDataString, 'base64');
-        avatarUrl = await storage.saveFile(avatarFileName, avatarBuffer, 'image/png');
-    } else {
-        // 如果没有独立的头像数据，就将整个卡片复制为头像
-        avatarUrl = await storage.saveFile(avatarFileName, buffer, 'image/png');
-    }
+    const cleanImageBuffer = removePngMetadata(buffer);
+    const avatarUrl = await storage.saveFile(avatarFileName, cleanImageBuffer, 'image/png');
 
     // --- 更新 index.json ---
     const indexData = await storage.readIndex();
@@ -134,6 +172,8 @@ export async function POST(request: NextRequest) {
       avatar_url: avatarUrl,
       card_url: cardUrl,
       last_updated: new Date().toISOString(),
+      upload_time: new Date().toISOString(),
+      download_count: 0,
     };
 
     // 添加新角色并更新时间戳

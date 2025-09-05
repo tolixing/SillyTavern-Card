@@ -12,6 +12,8 @@ interface Character {
   tags: string[];
   first_mes: string;
   last_updated: string;
+  upload_time: string;
+  download_count: number;
 }
 
 interface IndexFile {
@@ -32,12 +34,8 @@ class LocalStorageAdapter implements StorageAdapter {
     this.indexPath = join(this.basePath, 'public', 'index.json');
   }
 
-  async saveFile(fileName: string, data: Buffer, contentType: string): Promise<string> {
+  async saveFile(fileName: string, data: Buffer, _contentType: string): Promise<string> {
     const filePath = join(this.charactersPath, fileName);
-    
-    console.log('Storage - Saving file:', fileName);
-    console.log('Storage - File path:', filePath);
-    console.log('Storage - Characters path:', this.charactersPath);
     
     // 确保文件的父目录存在
     const fileDir = join(filePath, '..');
@@ -46,11 +44,8 @@ class LocalStorageAdapter implements StorageAdapter {
     // 写入文件
     await writeFile(filePath, data);
     
-    const returnPath = `/api/files/characters/${fileName}`;
-    console.log('Storage - Return path:', returnPath);
-    
     // 返回文件服务 API 路径，用于前端访问
-    return returnPath;
+    return `/api/files/characters/${fileName}`;
   }
 
   async deleteCharacterFiles(characterId: string): Promise<void> {

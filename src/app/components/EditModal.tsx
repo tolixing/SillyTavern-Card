@@ -11,6 +11,8 @@ interface Character {
   card_url: string;
   avatar_url: string;
   tags: string[];
+  upload_time: string;
+  download_count: number;
 }
 
 interface EditModalProps {

@@ -14,6 +14,8 @@ interface Character {
   card_url: string;
   avatar_url: string;
   tags: string[];
+  upload_time: string;
+  download_count: number;
 }
 
 export default function Home() {
@@ -190,12 +192,17 @@ export default function Home() {
                   <div className="text-white">
                     <h2 className="text-lg font-bold truncate mb-3">{char.name}</h2>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs bg-white/20 text-white px-2 py-1 rounded backdrop-blur-sm">
-                        v{char.version}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs bg-white/20 text-white px-2 py-1 rounded backdrop-blur-sm">
+                          v{char.version}
+                        </span>
+                        <span className="text-xs bg-blue-500/80 text-white px-2 py-1 rounded backdrop-blur-sm">
+                          {char.download_count || 0} 次下载
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         <a
-                          href={char.card_url}
+                          href={`/api/download/${char.id}`}
                           download
                           className="bg-green-500/80 hover:bg-green-600/90 text-white px-3 py-1 rounded-full text-xs transition-all duration-200 backdrop-blur-sm"
                           onClick={(e) => e.stopPropagation()}
@@ -258,6 +265,16 @@ export default function Home() {
                 <div>
                   <span className="text-sm font-medium text-gray-600">版本：</span>
                   <span className="text-sm text-gray-800">v{selectedCharacter.version}</span>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-600">上传时间：</span>
+                  <span className="text-sm text-gray-800">
+                    {selectedCharacter.upload_time ? new Date(selectedCharacter.upload_time).toLocaleString('zh-CN') : '未知'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-600">下载次数：</span>
+                  <span className="text-sm text-gray-800">{selectedCharacter.download_count || 0} 次</span>
                 </div>
                 <div>
                   <span className="text-sm font-medium text-gray-600">描述：</span>
