@@ -29,7 +29,7 @@ RUN mkdir -p public/characters && \
     mkdir -p data/characters
 
 # 构建应用 - 禁用缓存确保每次都重新构建
-RUN npm run build -- --no-cache
+RUN npm run build --no-cache
 
 # 生产阶段
 FROM base AS runner
