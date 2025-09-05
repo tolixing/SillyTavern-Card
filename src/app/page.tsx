@@ -142,7 +142,7 @@ export default function Home() {
     <>
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-          <h1 className="text-3xl font-bold text-gray-800">角色卡中心1</h1>
+          <h1 className="text-3xl font-bold text-gray-800">角色卡中心</h1>
           <div className="flex items-center gap-4">
             <input
               type="text"

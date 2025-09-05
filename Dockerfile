@@ -28,8 +28,8 @@ COPY . .
 RUN mkdir -p public/characters && \
     mkdir -p data/characters
 
-# 构建应用
-RUN npm run build
+# 构建应用 - 禁用缓存确保每次都重新构建
+RUN npm run build -- --no-cache
 
 # 生产阶段
 FROM base AS runner
