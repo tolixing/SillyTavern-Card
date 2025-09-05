@@ -13,7 +13,7 @@ export async function GET(
     // 构建完整的文件路径
     // 在 Docker 环境中，文件保存在 /app/data 卷中
     const basePath = process.env.NODE_ENV === 'production' ? '/app/data' : process.cwd();
-    const fullPath = join(basePath, 'characters', filePath);
+    const fullPath = join(basePath, 'public', 'characters', filePath);
     
     
     try {

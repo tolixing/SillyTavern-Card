@@ -32,17 +32,20 @@ export async function GET(
 
     // 读取角色卡文件
     const basePath = process.env.NODE_ENV === 'production' ? '/app/data' : process.cwd();
-    const filePath = join(basePath, 'characters', characterId, 'card.png');
+    const filePath = join(basePath, 'public', 'characters', characterId, 'card.png');
     
     try {
       const fileBuffer = await readFile(filePath);
       
       // 返回文件下载
+      // 对文件名进行URL编码，避免中文字符问题
+      const encodedFileName = encodeURIComponent(`${character.name}_v${character.version}.png`);
+      
       return new Response(new Uint8Array(fileBuffer), {
         status: 200,
         headers: {
           'Content-Type': 'image/png',
-          'Content-Disposition': `attachment; filename="${character.name}_v${character.version}.png"`,
+          'Content-Disposition': `attachment; filename*=UTF-8''${encodedFileName}`,
           'Cache-Control': 'no-cache',
         },
       });
