@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
+import type { CardSpecV2 } from "@/app/types/card";
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -33,7 +34,7 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
         body: fd,
       });
       if (!resp.ok) throw new Error('解析失败');
-      const data: { results?: Array<{ status: string; parsedData?: any }> } = await resp.json();
+      const data: { results?: Array<{ status: string; parsedData?: CardSpecV2 }> } = await resp.json();
       const first = data.results?.[0];
       if (first && first.status === 'valid' && first.parsedData) {
         setName(first.parsedData.name || "");
