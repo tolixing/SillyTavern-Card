@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "../../../lib/middleware";
 import type { CardSpecV2, ServerValidation } from "@/app/types/card";
 
+// 兼容 Node 运行时，避免使用全局 File/Blob 的 instanceof
+type UploadFile = {
+  name: string;
+  type: string;
+  size: number;
+  arrayBuffer: () => Promise<ArrayBuffer>;
+};
+
+function isUploadFile(value: unknown): value is UploadFile {
+  if (!value || typeof value !== 'object') return false;
+  const v = value as { name?: unknown; type?: unknown; size?: unknown; arrayBuffer?: unknown };
+  return (
+    typeof v.name === 'string' &&
+    typeof v.type === 'string' &&
+    typeof v.size === 'number' &&
+    typeof v.arrayBuffer === 'function'
+  );
+}
+
 // 使用共享的 ServerValidation，parsedData 类型明确为 CardSpecV2
 
 // PNG 元数据解析函数（服务端）
@@ -45,9 +64,9 @@ export async function POST(request: NextRequest) {
     }
 
     const formData = await request.formData();
-    const files: File[] = [];
+    const files: UploadFile[] = [];
     for (const [key, value] of formData.entries()) {
-      if (key.startsWith('files[') && value instanceof File) {
+      if (key.startsWith('files[') && isUploadFile(value)) {
         files.push(value);
       }
     }
