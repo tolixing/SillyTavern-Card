@@ -61,7 +61,7 @@ COPY scripts/init.sh ./init.sh
 RUN chown -R nextjs:nodejs /app/data && \
     chown -R nextjs:nodejs /app/public && \
     chmod -R 755 /app/public/characters && \
-    chmod -R 755 /app/data/characters && \
+    chmod -R 755 /app/data/public/characters && \
     chmod +x /app/init.sh
 
 # 切换到非 root 用户

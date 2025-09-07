@@ -57,7 +57,7 @@ check_dependencies() {
 create_directories() {
     log_info "创建必要目录..."
     
-    mkdir -p data/characters
+    mkdir -p data/public/characters
     mkdir -p public/characters
     mkdir -p backups
     mkdir -p ssl
@@ -132,7 +132,7 @@ show_deployment_info() {
     echo "更新服务: ./scripts/deploy.sh $ENVIRONMENT"
     echo ""
     echo "=== 数据目录 ==="
-    echo "角色卡数据: ./data/characters"
+    echo "角色卡数据: ./data/public/characters"
     echo "备份文件: ./backups"
     echo ""
 }
