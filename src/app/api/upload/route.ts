@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { storage, type Character } from "../../lib/storage";
+import { requireAuth } from "../../lib/middleware";
 
 // PNG 元数据解析函数
 function parsePngMetadata(buffer: Buffer) {
@@ -107,6 +108,15 @@ interface CardData {
 
 export async function POST(request: NextRequest) {
   try {
+    // 验证管理员权限
+    const user = requireAuth(request);
+    if (!user.isAdmin) {
+      return NextResponse.json(
+        { message: "需要管理员权限才能上传角色卡" },
+        { status: 403 }
+      );
+    }
+
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const name = formData.get("name") as string;
@@ -157,8 +167,6 @@ export async function POST(request: NextRequest) {
     const avatarUrl = await storage.saveFile(avatarFileName, cleanImageBuffer, 'image/png');
 
     // --- 更新 index.json ---
-    const indexData = await storage.readIndex();
-    
     const specData = cardData.data;
 
     const newCharacter: Character = {
@@ -176,12 +184,10 @@ export async function POST(request: NextRequest) {
       download_count: 0,
     };
 
-    // 添加新角色并更新时间戳
-    indexData.characters.push(newCharacter);
-    indexData.last_updated = new Date().toISOString();
-
-    // 将更新后的索引保存
-    await storage.saveIndex(indexData);
+    // 串行化索引更新，避免并发丢写
+    await storage.updateIndex((indexData) => {
+      indexData.characters.push(newCharacter);
+    });
 
     return NextResponse.json({
       message: "Character card uploaded successfully!",

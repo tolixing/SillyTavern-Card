@@ -26,7 +26,11 @@ COPY . .
 
 # 确保必要的目录存在
 RUN mkdir -p public/characters && \
-    mkdir -p data/characters
+    mkdir -p data/public/characters
+
+# 允许在构建期注入前端并发配置（NEXT_PUBLIC_* 会被 Next 内联）
+ARG NEXT_PUBLIC_BATCH_UPLOAD_CONCURRENCY=3
+ENV NEXT_PUBLIC_BATCH_UPLOAD_CONCURRENCY=${NEXT_PUBLIC_BATCH_UPLOAD_CONCURRENCY}
 
 # 构建应用 - 禁用缓存确保每次都重新构建
 RUN npm run build --no-cache
@@ -44,7 +48,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # 创建数据目录
-RUN mkdir -p /app/data/characters && \
+RUN mkdir -p /app/data/public/characters && \
     mkdir -p /app/public/characters
 
 # 复制 public 目录

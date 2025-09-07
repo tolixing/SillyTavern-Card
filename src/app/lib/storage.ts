@@ -27,6 +27,9 @@ class LocalStorageAdapter implements StorageAdapter {
   private basePath: string;
   private charactersPath: string;
   private indexPath: string;
+  // 简单进程内互斥，串行化对 index.json 的读改写操作，避免并发覆盖
+  private indexLocked = false;
+  private indexWaiters: Array<() => void> = [];
 
   constructor() {
     // 在Docker环境中使用 /app/data，本地开发使用 process.cwd()
@@ -86,6 +89,40 @@ class LocalStorageAdapter implements StorageAdapter {
     // 写入索引文件
     await writeFile(this.indexPath, JSON.stringify(data, null, 2));
   }
+
+  // 获取 index 的互斥锁
+  private async acquireIndexLock() {
+    if (!this.indexLocked) {
+      this.indexLocked = true;
+      return;
+    }
+    await new Promise<void>((resolve) => {
+      this.indexWaiters.push(resolve);
+    });
+  }
+
+  private releaseIndexLock() {
+    const next = this.indexWaiters.shift();
+    if (next) {
+      // 直接唤醒下一个持有者，保持锁占用
+      next();
+    } else {
+      this.indexLocked = false;
+    }
+  }
+
+  // 在互斥下执行 read-modify-write，避免并发丢写
+  async updateIndex(updater: (data: IndexFile) => void | Promise<void>): Promise<IndexFile> {
+    await this.acquireIndexLock();
+    try {
+      const data = await this.readIndex();
+      await updater(data);
+      await this.saveIndex(data);
+      return data;
+    } finally {
+      this.releaseIndexLock();
+    }
+  }
 }
 
 // 存储适配器接口
@@ -94,6 +131,7 @@ interface StorageAdapter {
   deleteCharacterFiles(characterId: string): Promise<void>;
   readIndex(): Promise<IndexFile>;
   saveIndex(data: IndexFile): Promise<void>;
+  updateIndex(updater: (data: IndexFile) => void | Promise<void>): Promise<IndexFile>;
 }
 
 // 创建存储适配器实例

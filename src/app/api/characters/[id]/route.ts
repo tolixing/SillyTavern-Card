@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage, type Character } from "../../../lib/storage";
+import { requireAuth } from "../../../lib/middleware";
 
 // PNG 元数据解析函数
 function parsePngMetadata(buffer: Buffer) {
@@ -109,14 +110,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 验证管理员权限
+    const user = requireAuth(request);
+    if (!user.isAdmin) {
+      return NextResponse.json(
+        { message: "需要管理员权限才能删除角色卡" },
+        { status: 403 }
+      );
+    }
+
     const { id: characterId } = await params;
     
-    // 读取当前索引
+    // 读取当前索引并检查是否存在
     const indexData = await storage.readIndex();
-    
-    // 查找要删除的角色
     const characterIndex = indexData.characters.findIndex(char => char.id === characterId);
-    
     if (characterIndex === -1) {
       return NextResponse.json(
         { message: "Character not found." },
@@ -124,15 +131,13 @@ export async function DELETE(
       );
     }
 
-    // 删除角色文件
+    // 删除角色文件（不持有索引锁）
     await storage.deleteCharacterFiles(characterId);
-    
-    // 从索引中移除角色
-    indexData.characters.splice(characterIndex, 1);
-    indexData.last_updated = new Date().toISOString();
-    
-    // 保存更新后的索引
-    await storage.saveIndex(indexData);
+    // 串行化索引变更（移除该角色）
+    await storage.updateIndex((data) => {
+      const i = data.characters.findIndex(c => c.id === characterId);
+      if (i !== -1) data.characters.splice(i, 1);
+    });
 
     return NextResponse.json({
       message: "Character deleted successfully!",
@@ -152,6 +157,15 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 验证管理员权限
+    const user = requireAuth(request);
+    if (!user.isAdmin) {
+      return NextResponse.json(
+        { message: "需要管理员权限才能编辑角色卡" },
+        { status: 403 }
+      );
+    }
+
     const { id: characterId } = await params;
     const formData = await request.formData();
     const file = formData.get("file") as File;
@@ -159,12 +173,9 @@ export async function PUT(
     let description = formData.get("description") as string;
     let version = formData.get("version") as string;
 
-    // 读取当前索引
+    // 读取当前索引并检查是否存在
     const indexData = await storage.readIndex();
-    
-    // 查找要更新的角色
     const characterIndex = indexData.characters.findIndex(char => char.id === characterId);
-    
     if (characterIndex === -1) {
       return NextResponse.json(
         { message: "Character not found." },
@@ -218,7 +229,7 @@ export async function PUT(
       }
     }
 
-    // 更新角色信息
+    // 更新索引中的角色（串行化）
     const updatedCharacter: Character = {
       ...existingCharacter,
       name: name || existingCharacter.name,
@@ -230,13 +241,12 @@ export async function PUT(
       upload_time: existingCharacter.upload_time || new Date().toISOString(),
       download_count: existingCharacter.download_count || 0,
     };
-
-    // 更新索引中的角色
-    indexData.characters[characterIndex] = updatedCharacter;
-    indexData.last_updated = new Date().toISOString();
-    
-    // 保存更新后的索引
-    await storage.saveIndex(indexData);
+    await storage.updateIndex((data) => {
+      const i = data.characters.findIndex(c => c.id === characterId);
+      if (i !== -1) {
+        data.characters[i] = updatedCharacter;
+      }
+    });
 
     return NextResponse.json({
       message: "Character updated successfully!",

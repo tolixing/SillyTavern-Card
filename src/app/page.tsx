@@ -4,6 +4,9 @@ import { useEffect, useState, useMemo } from "react";
 import Image from "next/image";
 import UploadModal from "./components/UploadModal";
 import EditModal from "./components/EditModal";
+import LoginModal from "./components/LoginModal";
+import BatchUploadModal from "./components/BatchUploadModal";
+import { useAuth } from "./contexts/AuthContext";
 
 interface Character {
   id: string;
@@ -24,10 +27,13 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showBatchUploadModal, setShowBatchUploadModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
   const [showDescModal, setShowDescModal] = useState(false);
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+  const { user, logout, token, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
     const fetchCharacters = async () => {
@@ -71,6 +77,9 @@ export default function Home() {
       try {
         const response = await fetch(`/api/characters/${id}`, {
           method: "DELETE",
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         });
 
         if (!response.ok) {
@@ -122,7 +131,7 @@ export default function Home() {
     }
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         Loading...
@@ -151,12 +160,41 @@ export default function Home() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
             />
-            <button
-              onClick={() => setShowUploadModal(true)}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 whitespace-nowrap transition-colors"
-            >
-              上传角色卡
-            </button>
+            
+            {/* 用户状态显示 */}
+            {user ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-gray-600">
+                  欢迎，<span className="font-medium">{user.username}</span>
+                </span>
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 whitespace-nowrap transition-colors"
+                >
+                  上传角色卡
+                </button>
+                <button
+                  onClick={() => setShowBatchUploadModal(true)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 whitespace-nowrap transition-colors"
+                >
+                  批量上传
+                </button>
+                <button
+                  onClick={logout}
+                  className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700 whitespace-nowrap transition-colors"
+                >
+                  退出登录
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowLoginModal(true)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 whitespace-nowrap transition-colors"
+              >
+                管理员登录
+              </button>
+            )}
+            
             <a
               href="/api/index"
               target="_blank"
@@ -209,24 +247,28 @@ export default function Home() {
                         >
                           下载
                         </a>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleEdit(char);
-                          }}
-                          className="bg-yellow-500/80 hover:bg-yellow-600/90 text-white px-3 py-1 rounded-full text-xs transition-all duration-200 backdrop-blur-sm"
-                        >
-                          编辑
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(char.id);
-                          }}
-                          className="bg-red-500/80 hover:bg-red-600/90 text-white px-3 py-1 rounded-full text-xs transition-all duration-200 backdrop-blur-sm"
-                        >
-                          删除
-                        </button>
+                        {user && user.isAdmin && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEdit(char);
+                              }}
+                              className="bg-yellow-500/80 hover:bg-yellow-600/90 text-white px-3 py-1 rounded-full text-xs transition-all duration-200 backdrop-blur-sm"
+                            >
+                              编辑
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDelete(char.id);
+                              }}
+                              className="bg-red-500/80 hover:bg-red-600/90 text-white px-3 py-1 rounded-full text-xs transition-all duration-200 backdrop-blur-sm"
+                            >
+                              删除
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -298,6 +340,12 @@ export default function Home() {
         </div>
       )}
 
+      {/* 登录弹窗 */}
+      <LoginModal 
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+      />
+
       {/* 上传弹窗 */}
       <UploadModal 
         isOpen={showUploadModal}
@@ -313,6 +361,13 @@ export default function Home() {
           setShowEditModal(false);
           setEditingCharacter(null);
         }}
+        onSuccess={refreshCharacters}
+      />
+
+      {/* 批量上传弹窗 */}
+      <BatchUploadModal
+        isOpen={showBatchUploadModal}
+        onClose={() => setShowBatchUploadModal(false)}
         onSuccess={refreshCharacters}
       />
     </>

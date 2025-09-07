@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { storage } from "../../../lib/storage";
+import { storage, type Character } from "../../../lib/storage";
 import { readFile } from 'fs/promises';
 import { join } from 'path';
 
@@ -10,25 +10,23 @@ export async function GET(
   try {
     const { id: characterId } = await params;
     
-    // 读取当前索引
-    const indexData = await storage.readIndex();
-    
-    // 查找角色
-    const character = indexData.characters.find(char => char.id === characterId);
-    
+    // 串行化增加下载次数，并获取更新后的角色信息
+    let character: Character | undefined;
+    await storage.updateIndex((data) => {
+      const c = data.characters.find(ch => ch.id === characterId);
+      if (c) {
+        c.download_count = (c.download_count || 0) + 1;
+        c.last_updated = new Date().toISOString();
+        character = { ...c };
+      }
+    });
+
     if (!character) {
       return NextResponse.json(
         { message: "Character not found." },
         { status: 404 }
       );
     }
-
-    // 增加下载次数
-    character.download_count = (character.download_count || 0) + 1;
-    character.last_updated = new Date().toISOString();
-    
-    // 保存更新后的索引
-    await storage.saveIndex(indexData);
 
     // 读取角色卡文件
     const basePath = process.env.NODE_ENV === 'production' ? '/app/data' : process.cwd();

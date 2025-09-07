@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAuth } from "../contexts/AuthContext";
 
 interface Character {
   id: string;
@@ -29,6 +30,7 @@ export default function EditModal({ isOpen, character, onClose, onSuccess }: Edi
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { token } = useAuth();
 
   useEffect(() => {
     if (character) {
@@ -45,12 +47,12 @@ export default function EditModal({ isOpen, character, onClose, onSuccess }: Edi
       
       // 自动解析角色卡信息
       try {
-        const buffer = await selectedFile.arrayBuffer();
-        const metadata = parsePngMetadata(Buffer.from(buffer));
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        const metadata = parsePngMetadata(arrayBuffer);
         const charaDataString = metadata.tEXt?.chara;
         
         if (charaDataString) {
-          const cardData = JSON.parse(Buffer.from(charaDataString, 'base64').toString('utf-8'));
+          const cardData = JSON.parse(atob(charaDataString));
           const specData = cardData.data;
           
           setName(specData.name || character?.name || "");
@@ -63,31 +65,51 @@ export default function EditModal({ isOpen, character, onClose, onSuccess }: Edi
     }
   };
 
-  // PNG 元数据解析函数
-  function parsePngMetadata(buffer: Buffer) {
-    const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-    
-    if (!buffer.subarray(0, 8).equals(PNG_SIGNATURE)) {
-      throw new Error("Not a valid PNG file");
+  // PNG 元数据解析函数（浏览器环境）
+  function parsePngMetadata(arrayBuffer: ArrayBuffer) {
+    const signature = new Uint8Array(arrayBuffer, 0, 8);
+    const PNG_SIGNATURE = new Uint8Array([
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+    ]);
+
+    for (let i = 0; i < 8; i++) {
+      if (signature[i] !== PNG_SIGNATURE[i]) {
+        throw new Error("Not a valid PNG file");
+      }
     }
 
     const chunks: { [key: string]: string } = {};
+    const view = new DataView(arrayBuffer);
     let offset = 8;
 
-    while (offset < buffer.length - 8) {
-      const length = buffer.readUInt32BE(offset);
+    const readType = (off: number) => {
+      const bytes = new Uint8Array(arrayBuffer, off, 4);
+      return String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
+    };
+
+    while (offset + 8 <= arrayBuffer.byteLength) {
+      const length = view.getUint32(offset, false); // big-endian
       offset += 4;
-      const type = buffer.subarray(offset, offset + 4).toString('ascii');
+      const type = readType(offset);
       offset += 4;
-      const data = buffer.subarray(offset, offset + length);
+
+      if (offset + length + 4 > arrayBuffer.byteLength) break;
+
+      const dataBytes = new Uint8Array(arrayBuffer, offset, length);
       offset += length;
+
+      // skip CRC
       offset += 4;
 
       if (type === 'tEXt') {
-        const nullIndex = data.indexOf(0);
+        const nullIndex = dataBytes.indexOf(0);
         if (nullIndex !== -1) {
-          const keyword = data.subarray(0, nullIndex).toString('latin1');
-          const text = data.subarray(nullIndex + 1).toString('latin1');
+          const keyword = String.fromCharCode(
+            ...dataBytes.subarray(0, nullIndex)
+          );
+          const text = String.fromCharCode(
+            ...dataBytes.subarray(nullIndex + 1)
+          );
           chunks[keyword] = text;
         }
       }
@@ -116,6 +138,9 @@ export default function EditModal({ isOpen, character, onClose, onSuccess }: Edi
     try {
       const response = await fetch(`/api/characters/${character.id}`, {
         method: "PUT",
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData,
       });
 
