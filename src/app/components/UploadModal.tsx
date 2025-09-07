@@ -20,85 +20,32 @@ export default function UploadModal({ isOpen, onClose, onSuccess }: UploadModalP
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      
-      // 自动解析角色卡信息
-      try {
-        const arrayBuffer = await selectedFile.arrayBuffer();
-        const metadata = parsePngMetadata(arrayBuffer);
-        const charaDataString = metadata.tEXt?.chara;
-        
-        if (charaDataString) {
-          const cardData = JSON.parse(atob(charaDataString));
-          const specData = cardData.data;
-          
-          setName(specData.name || "");
-          setDescription(specData.description || "");
-          setVersion(specData.character_version || "1.0");
-        }
-      } catch {
-        console.log("无法自动解析角色卡信息，请手动填写");
+    if (!selectedFile) return;
+    setFile(selectedFile);
+
+    // 使用后端校验接口进行解析，避免前端编码/压缩差异导致的乱码
+    try {
+      const fd = new FormData();
+      fd.append('files[0]', selectedFile);
+      const resp = await fetch('/api/upload/validate', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: fd,
+      });
+      if (!resp.ok) throw new Error('解析失败');
+      const data: { results?: Array<{ status: string; parsedData?: any }> } = await resp.json();
+      const first = data.results?.[0];
+      if (first && first.status === 'valid' && first.parsedData) {
+        setName(first.parsedData.name || "");
+        setDescription(first.parsedData.description || "");
+        setVersion(first.parsedData.character_version || "1.0");
+      } else {
+        console.log('未能自动解析角色信息，保留手动输入');
       }
+    } catch (err) {
+      console.log('无法自动解析角色卡信息，请手动填写');
     }
   };
-
-  // PNG 元数据解析函数（浏览器环境）
-  function parsePngMetadata(arrayBuffer: ArrayBuffer) {
-    const signature = new Uint8Array(arrayBuffer, 0, 8);
-    const PNG_SIGNATURE = new Uint8Array([
-      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-    ]);
-
-    for (let i = 0; i < 8; i++) {
-      if (signature[i] !== PNG_SIGNATURE[i]) {
-        throw new Error("Not a valid PNG file");
-      }
-    }
-
-    const chunks: { [key: string]: string } = {};
-    const view = new DataView(arrayBuffer);
-    let offset = 8;
-
-    const readType = (off: number) => {
-      const bytes = new Uint8Array(arrayBuffer, off, 4);
-      return String.fromCharCode(bytes[0], bytes[1], bytes[2], bytes[3]);
-    };
-
-    while (offset + 8 <= arrayBuffer.byteLength) {
-      const length = view.getUint32(offset, false); // big-endian
-      offset += 4;
-      const type = readType(offset);
-      offset += 4;
-
-      if (offset + length + 4 > arrayBuffer.byteLength) break;
-
-      const dataBytes = new Uint8Array(arrayBuffer, offset, length);
-      offset += length;
-
-      // skip CRC
-      offset += 4;
-
-      if (type === 'tEXt') {
-        const nullIndex = dataBytes.indexOf(0);
-        if (nullIndex !== -1) {
-          const keyword = String.fromCharCode(
-            ...dataBytes.subarray(0, nullIndex)
-          );
-          const text = String.fromCharCode(
-            ...dataBytes.subarray(nullIndex + 1)
-          );
-          chunks[keyword] = text;
-        }
-      }
-
-      if (type === 'IEND') {
-        break;
-      }
-    }
-
-    return { tEXt: chunks };
-  }
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

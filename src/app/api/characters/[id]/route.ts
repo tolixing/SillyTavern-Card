@@ -1,47 +1,64 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storage, type Character } from "../../../lib/storage";
 import { requireAuth } from "../../../lib/middleware";
+import { inflateSync } from 'zlib';
 
-// PNG 元数据解析函数
-function parsePngMetadata(buffer: Buffer) {
+// 从 PNG 中提取 chara 文本，支持 tEXt / zTXt / iTXt
+function extractCharaFromPng(buffer: Buffer): string | null {
   const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
-  
-  // 检查 PNG 签名
   if (!buffer.subarray(0, 8).equals(PNG_SIGNATURE)) {
     throw new Error("Not a valid PNG file");
   }
 
-  const chunks: { [key: string]: string } = {};
-  let offset = 8; // 跳过 PNG 签名
-
+  const map: Record<string, string> = {};
+  let offset = 8;
   while (offset < buffer.length - 8) {
-    // 读取 chunk 长度 (4 bytes, big-endian)
-    const length = buffer.readUInt32BE(offset);
-    offset += 4;
+    const length = buffer.readUInt32BE(offset); offset += 4;
+    const type = buffer.subarray(offset, offset + 4).toString('ascii'); offset += 4;
+    const data = buffer.subarray(offset, offset + length); offset += length;
+    offset += 4; // CRC
 
-    // 读取 chunk 类型 (4 bytes)
-    const type = buffer.subarray(offset, offset + 4).toString('ascii');
-    offset += 4;
-
-    // 读取 chunk 数据
-    const data = buffer.subarray(offset, offset + length);
-    offset += length;
-
-    // 跳过 CRC (4 bytes)
-    offset += 4;
-
-    // 处理 tEXt chunks
     if (type === 'tEXt') {
-      const nullIndex = data.indexOf(0);
-      if (nullIndex !== -1) {
-        const keyword = data.subarray(0, nullIndex).toString('ascii');
-        const text = data.subarray(nullIndex + 1).toString('ascii');
-        chunks[keyword] = text;
+      const i = data.indexOf(0);
+      if (i !== -1) {
+        const keyword = data.subarray(0, i).toString('latin1');
+        const text = data.subarray(i + 1).toString('latin1');
+        map[keyword] = text;
       }
+    } else if (type === 'zTXt') {
+      const i = data.indexOf(0);
+      if (i !== -1 && i + 1 < data.length) {
+        const keyword = data.subarray(0, i).toString('latin1');
+        const compMethod = data.readUInt8(i + 1);
+        const compData = data.subarray(i + 2);
+        try {
+          const inflated = compMethod === 0 ? inflateSync(compData) : compData;
+          const text = inflated.toString('utf8');
+          map[keyword] = text;
+        } catch {}
+      }
+    } else if (type === 'iTXt') {
+      let p = 0;
+      const i = data.indexOf(0, p);
+      if (i === -1) continue;
+      const keyword = data.subarray(p, i).toString('latin1');
+      p = i + 1;
+      if (p + 2 > data.length) continue;
+      const compFlag = data.readUInt8(p); p += 1;
+      const compMethod = data.readUInt8(p); p += 1;
+      const j = data.indexOf(0, p); if (j === -1) continue; p = j + 1; // lang tag
+      const k = data.indexOf(0, p); if (k === -1) continue; p = k + 1; // translated
+      try {
+        const textBytes = data.subarray(p);
+        const text = compFlag === 1 && compMethod === 0 
+          ? inflateSync(textBytes).toString('utf8')
+          : textBytes.toString('utf8');
+        map[keyword] = text;
+      } catch {}
     }
   }
 
-  return { tEXt: chunks };
+  return map['chara'] || map['chara_card_v2'] || null;
 }
 
 // 去除 PNG 元数据，保留纯图片数据
@@ -103,6 +120,24 @@ interface CardData {
   spec: "chara_card_v2";
   spec_version: "2.0";
   data: CardSpecV2;
+}
+
+function parseCharaPayload(raw: string): CardData {
+  const tryJson = (s: string) => {
+    const t = s.trim();
+    if (t.startsWith('{') || t.startsWith('[')) return JSON.parse(t);
+    throw new Error('not-json');
+  };
+  try { return tryJson(raw); } catch {}
+  try {
+    const text = Buffer.from(raw, 'base64').toString('utf8');
+    return JSON.parse(text);
+  } catch {}
+  try {
+    const inflated = inflateSync(Buffer.from(raw, 'base64')).toString('utf8');
+    return JSON.parse(inflated);
+  } catch {}
+  throw new Error('无法解析角色卡数据');
 }
 
 export async function DELETE(
@@ -196,13 +231,11 @@ export async function PUT(
       const bytes = await file.arrayBuffer();
       const buffer = Buffer.from(bytes);
 
-      // 解析 PNG 元数据
-      const metadata = parsePngMetadata(buffer);
-      const charaDataString = metadata.tEXt?.chara;
+      // 解析 PNG 元数据（更健壮）
+      const charaDataString = extractCharaFromPng(buffer);
 
       if (charaDataString && typeof charaDataString === 'string') {
-        // Base64 解码并解析 JSON
-        const cardData: CardData = JSON.parse(Buffer.from(charaDataString, 'base64').toString('utf-8'));
+        const cardData: CardData = parseCharaPayload(charaDataString);
         const specData = cardData.data;
 
         // 保存新的角色卡文件
