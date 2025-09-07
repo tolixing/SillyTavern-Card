@@ -49,3 +49,4 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ env.DOCKER_TAGS }}
+          no-cache: true
