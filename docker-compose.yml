@@ -3,7 +3,7 @@ version: '3.8'
 services:
   # 主应用服务
   app:
-    image: ghcr.io/tolixing/sillytavern-card:latest
+    image: ghcr.io/tolixing/sillytavern-card:dev
     container_name: sillytavern-card
     restart: unless-stopped
     ports:
